@@ -2,6 +2,13 @@
 
 **Português** | [English](README.md)
 
+![License](https://img.shields.io/github/license/povman/stickies)
+![Release](https://img.shields.io/github/v/release/povman/stickies)
+![Platform](https://img.shields.io/badge/platform-Linux-blue)
+![Qt](https://img.shields.io/badge/Qt-6-green)
+![C++](https://img.shields.io/badge/C++-17-blue)
+![Wayland](https://img.shields.io/badge/Wayland-nativo-blueviolet)
+
 Notas adesivas flutuantes para Linux, construído com **Qt6/C++** e com suporte nativo a **Wayland**.
 
 ## Funcionalidades
