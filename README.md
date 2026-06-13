@@ -11,6 +11,8 @@
 
 Floating sticky notes for Linux, built with **Qt6/C++** with native **Wayland** support.
 
+![screenshot](screenshot.png)
+
 ## Features
 
 - Multiple simultaneous notes, always visible above other windows

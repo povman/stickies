@@ -11,6 +11,8 @@
 
 Notas adesivas flutuantes para Linux, construído com **Qt6/C++** e com suporte nativo a **Wayland**.
 
+![screenshot](screenshot.png)
+
 ## Funcionalidades
 
 - Múltiplas notas simultâneas, sempre visíveis sobre outras janelas
