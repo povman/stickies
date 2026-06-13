@@ -1,32 +1,34 @@
 # Stickies
 
-Notas adesivas flutuantes para Linux, construído com **Qt6/C++** e com suporte nativo a **Wayland**.
+[Português](README.pt-BR.md) | **English**
 
-## Funcionalidades
+Floating sticky notes for Linux, built with **Qt6/C++** with native **Wayland** support.
 
-- Múltiplas notas simultâneas, sempre visíveis sobre outras janelas
-- Formatação de texto: negrito, itálico, sublinhado, tachado, cor e tamanho da fonte
-- Correção ortográfica em **Português (PT-BR)** com sugestões no botão direito — dicionário embutido, sem instalar nada
-- Cores personalizáveis por nota (amarelo, azul, verde, vermelho, branco, transparente)
-- Arrastar e redimensionar por qualquer borda/canto
-- Salvar/restaurar posição, tamanho e conteúdo automaticamente
-- **Backup automático**: salva via `.tmp` → `.bak` → `.json`, protegendo contra crashes
-- Exportar notas para **HTML** ou **Markdown**
-- Ícone na bandeja do sistema com menu de ações
-- Atalhos: `Ctrl+N` nova nota, `Ctrl+Shift+S` salvar tudo, `Ctrl+Shift+W` esconder tudo
+## Features
+
+- Multiple simultaneous notes, always visible above other windows
+- Rich text formatting: bold, italic, underline, strikethrough, font color and size
+- **PT-BR spell checking** with right-click suggestions — dictionary bundled, no extra install needed
+- Customizable note colors (yellow, blue, green, red, white, transparent)
+- Drag and resize from any edge or corner
+- Position, size and content automatically saved and restored
+- **Auto-backup**: saves via `.tmp` → `.bak` → `.json`, protecting against data loss on crash
+- Export notes to **HTML** or **Markdown**
+- System tray icon with action menu
+- Keyboard shortcuts: `Ctrl+N` new note, `Ctrl+Shift+S` save all, `Ctrl+Shift+W` hide all
 
 ## Download
 
-Baixe o AppImage na página de [Releases](https://github.com/povman/stickies/releases) — não requer instalação.
+Download the AppImage from the [Releases](https://github.com/povman/stickies/releases) page — no installation required.
 
 ```bash
 chmod +x Stickies-x86_64.AppImage
 ./Stickies-x86_64.AppImage
 ```
 
-## Compilar do código fonte
+## Build from source
 
-**Dependências:**
+**Dependencies:**
 
 ```bash
 # Arch / Manjaro
@@ -43,21 +45,21 @@ cmake --build build -j$(nproc)
 ./build/stickies
 ```
 
-**Gerar AppImage:**
+**Generate AppImage:**
 
 ```bash
 bash build-appimage.sh
 ```
 
-## Arquivos de dados
+## Data files
 
-As notas são salvas em:
+Notes are saved at:
 
 ```
 ~/.config/stickies/notes.json
-~/.config/stickies/notes.json.bak  ← backup automático
+~/.config/stickies/notes.json.bak  ← automatic backup
 ```
 
-## Licença
+## License
 
 MIT © [Fabio Moraes](https://fabiomoraes.sisdigital.com.br)
