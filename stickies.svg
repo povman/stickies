@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Corpo do disquete (azul) -->
+  <rect x="12" y="12" width="232" height="232" rx="18" ry="18" fill="#3476D2" stroke="#12409A" stroke-width="7"/>
+  <!-- Etiqueta (azul claro) -->
+  <rect x="24" y="24" width="150" height="110" rx="8" ry="8" fill="#C3DCFF"/>
+  <!-- Aba de proteção (canto sup. direito) -->
+  <rect x="186" y="24" width="58" height="68" rx="8" ry="8" fill="#1E50AF"/>
+  <rect x="196" y="36" width="38" height="44" rx="4" ry="4" fill="#12409A"/>
+  <!-- Proteção metálica inferior (shutter) -->
+  <rect x="12" y="166" width="232" height="74" rx="0" ry="0" fill="#A8B4C8"/>
+  <!-- Linha divisória -->
+  <rect x="12" y="166" width="232" height="14" fill="#CED8E8"/>
+  <line x1="12" y1="166" x2="244" y2="166" stroke="#12409A" stroke-width="5"/>
+  <!-- Orifício do disco -->
+  <rect x="76" y="186" width="104" height="42" rx="6" ry="6" fill="#282D3A"/>
+  <!-- Cantos arredondados do shutter inferior -->
+  <rect x="12" y="222" width="232" height="22" rx="0" fill="#A8B4C8"/>
+  <rect x="12" y="228" width="232" height="16" rx="18" fill="#A8B4C8"/>
+</svg>

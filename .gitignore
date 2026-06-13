@@ -1,0 +1,31 @@
+# Build
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# AppImage tooling (baixados pelo script)
+linuxdeploy-x86_64.AppImage
+linuxdeploy-plugin-qt-x86_64.AppImage
+linuxdeploy-plugin-qt-x86_64
+squashfs-root-linuxdeploy/
+squashfs-root-qt/
+squashfs-root/
+AppDir/
+
+# Binários gerados
+*.AppImage
+stickies
+
+# Editor / IDE
+.vscode/
+.idea/
+*.user
+*.pro.user
+.claude/
+
+# Qt moc / uic
+moc_*.cpp
+ui_*.h
+qrc_*.cpp

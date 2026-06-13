@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Stickies
+Comment=Notas flutuantes na área de trabalho
+Exec=stickies
+Icon=stickies
+Type=Application
+Categories=Utility;
+StartupNotify=false
