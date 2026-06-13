@@ -13,6 +13,7 @@
 #include <QMap>
 
 class QGraphicsDropShadowEffect;
+class SpellHighlighter;
 
 class StickieCard : public QWidget
 {
@@ -29,6 +30,7 @@ public:
 
 signals:
     void saveRequested();
+    void deleteRequested();
     void moved();
     void resized();
 
@@ -68,8 +70,10 @@ private:
     QPushButton *m_btnFontColor = nullptr;
     QPushButton *m_btnIncreaseFont = nullptr;
     QPushButton *m_btnDecreaseFont = nullptr;
-    QPushButton *m_btnDrag = nullptr;
-    QPushButton *m_btnSave = nullptr;
+    QPushButton    *m_btnDelete = nullptr;
+    QPushButton    *m_btnDrag = nullptr;
+    QPushButton    *m_btnSave = nullptr;
+    SpellHighlighter *m_spellHighlighter = nullptr;
 
     bool m_dragging = false;
 

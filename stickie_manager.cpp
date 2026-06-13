@@ -2,6 +2,9 @@
 #include "stickie_card.h"
 
 #include <QTextEdit>
+#include <QTextDocument>
+#include <QTextBlock>
+#include <QTextFragment>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -77,12 +80,19 @@ void StickieManager::createNewCard(const QString &bgColor)
     });
     te->installEventFilter(this);
 
-    connect(card, &StickieCard::saveRequested, this, &StickieManager::saveNotes);
+    connect(card, &StickieCard::saveRequested,  this, &StickieManager::saveNotes);
+    connect(card, &StickieCard::deleteRequested, this, [this, card]() { deleteCard(card); });
     connect(card, &StickieCard::moved,   this, [this]() { m_saveTimer->start(); });
     connect(card, &StickieCard::resized, this, [this]() { m_saveTimer->start(); });
-
     m_cards.append(card);
     card->showWithAnimation();
+}
+
+void StickieManager::deleteCard(StickieCard *card)
+{
+    m_cards.removeOne(card);
+    card->deleteLater();
+    saveNotes();
 }
 
 void StickieManager::hideAll()
@@ -103,42 +113,64 @@ void StickieManager::saveNotes()
     root[QStringLiteral("version")] = 1;
     root[QStringLiteral("notes")]   = notes;
 
-    QFile file(m_configPath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-        file.close();
+    const QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Indented);
+
+    // Escreve num arquivo temporário primeiro
+    const QString tmpPath = m_configPath + QStringLiteral(".tmp");
+    {
+        QFile tmp(tmpPath);
+        if (!tmp.open(QIODevice::WriteOnly))
+            return;
+        tmp.write(data);
+        tmp.flush();
     }
+
+    // Rotaciona: notes.json → notes.json.bak, depois notes.json.tmp → notes.json
+    const QString bakPath = m_configPath + QStringLiteral(".bak");
+    if (QFileInfo::exists(m_configPath)) {
+        QFile::remove(bakPath);
+        QFile::rename(m_configPath, bakPath);
+    }
+    QFile::rename(tmpPath, m_configPath);
 }
 
-void StickieManager::loadNotes()
+bool StickieManager::tryLoadFrom(const QString &path)
 {
-    QFile file(m_configPath);
+    QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
-        return;
+        return false;
 
     QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
     file.close();
 
-    if (!doc.isObject()) return;
+    if (!doc.isObject()) return false;
 
     QJsonObject root = doc.object();
-    if (root[QStringLiteral("version")].toInt() != 1) return;
+    if (root[QStringLiteral("version")].toInt() != 1) return false;
 
-    QJsonArray notes = root[QStringLiteral("notes")].toArray();
+    const QJsonArray notes = root[QStringLiteral("notes")].toArray();
+    if (notes.isEmpty()) return false;
+
     for (const auto &val : notes) {
         if (!val.isObject()) continue;
         auto *card = new StickieCard(val.toObject());
-        connect(card, &StickieCard::saveRequested, this, &StickieManager::saveNotes);
+        connect(card, &StickieCard::saveRequested,  this, &StickieManager::saveNotes);
+        connect(card, &StickieCard::deleteRequested, this, [this, card]() { deleteCard(card); });
         connect(card, &StickieCard::moved,   this, [this]() { m_saveTimer->start(); });
-    connect(card, &StickieCard::resized, this, [this]() { m_saveTimer->start(); });
+        connect(card, &StickieCard::resized, this, [this]() { m_saveTimer->start(); });
         auto *te = card->findChild<QTextEdit *>();
-        connect(te, &QTextEdit::textChanged, this, [this]() {
-            m_saveTimer->start();
-        });
+        connect(te, &QTextEdit::textChanged, this, [this]() { m_saveTimer->start(); });
         te->installEventFilter(this);
         m_cards.append(card);
         card->showWithAnimation();
     }
+    return true;
+}
+
+void StickieManager::loadNotes()
+{
+    if (!tryLoadFrom(m_configPath))
+        tryLoadFrom(m_configPath + QStringLiteral(".bak"));
 }
 
 // ── Event filter (save on focus out) ───────────────────────────────────────
@@ -197,6 +229,60 @@ void StickieManager::exportToHtml(const QString &filePath)
     file.close();
 }
 
+// ── Export Markdown ────────────────────────────────────────────────────────
+
+static QString fragmentToMarkdown(const QTextFragment &frag)
+{
+    QString text = frag.text();
+    if (text.trimmed().isEmpty())
+        return text;
+
+    const QTextCharFormat fmt = frag.charFormat();
+    const bool bold   = fmt.fontWeight() >= QFont::Bold;
+    const bool italic = fmt.fontItalic();
+    const bool strike = fmt.fontStrikeOut();
+
+    if (strike) text = QStringLiteral("~~") + text + QStringLiteral("~~");
+    if (bold && italic) text = QStringLiteral("***") + text + QStringLiteral("***");
+    else if (bold)      text = QStringLiteral("**")  + text + QStringLiteral("**");
+    else if (italic)    text = QStringLiteral("*")   + text + QStringLiteral("*");
+
+    return text;
+}
+
+void StickieManager::exportToMarkdown(const QString &filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    QTextStream out(&file);
+    out.setEncoding(QStringConverter::Utf8);
+
+    const QString today = QDate::currentDate().toString(QStringLiteral("dd/MM/yyyy"));
+    out << QStringLiteral("# Stickies — ") << today << QStringLiteral("\n\n");
+
+    for (int i = 0; i < m_cards.size(); ++i) {
+        if (i > 0)
+            out << QStringLiteral("\n---\n\n");
+
+        QTextDocument doc;
+        doc.setHtml(m_cards.at(i)->toJson()[QStringLiteral("text")].toString());
+
+        for (QTextBlock block = doc.begin(); block != doc.end(); block = block.next()) {
+            QString line;
+            for (auto it = block.begin(); !it.atEnd(); ++it) {
+                const QTextFragment frag = it.fragment();
+                if (frag.isValid())
+                    line += fragmentToMarkdown(frag);
+            }
+            out << line << QStringLiteral("\n");
+        }
+    }
+
+    file.close();
+}
+
 // ── System Tray ────────────────────────────────────────────────────────────
 
 void StickieManager::setupSystemTray()
@@ -238,11 +324,18 @@ void StickieManager::setupSystemTray()
         for (auto *c : m_cards) c->hideWithAnimation();
     });
     menu->addSeparator();
-    menu->addAction(QStringLiteral("Exportar HTML…"), this, [this]() {
+    auto *exportMenu = menu->addMenu(QStringLiteral("Exportar…"));
+    exportMenu->addAction(QStringLiteral("HTML…"), this, [this]() {
         QString path = QFileDialog::getSaveFileName(
-            nullptr, QStringLiteral("Exportar Notas"),
+            nullptr, QStringLiteral("Exportar como HTML"),
             QStringLiteral("stickies.html"), QStringLiteral("HTML (*.html)"));
         if (!path.isEmpty()) exportToHtml(path);
+    });
+    exportMenu->addAction(QStringLiteral("Markdown…"), this, [this]() {
+        QString path = QFileDialog::getSaveFileName(
+            nullptr, QStringLiteral("Exportar como Markdown"),
+            QStringLiteral("stickies.md"), QStringLiteral("Markdown (*.md)"));
+        if (!path.isEmpty()) exportToMarkdown(path);
     });
     menu->addSeparator();
     menu->addAction(QStringLiteral("Sobre"), this, [this]() {

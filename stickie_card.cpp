@@ -1,4 +1,5 @@
 #include "stickie_card.h"
+#include "spell_highlighter.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -7,11 +8,14 @@
 #include <QMouseEvent>
 #include <QColorDialog>
 #include <QJsonObject>
-
 #include <QCloseEvent>
 #include <QTextCharFormat>
 #include <QTextCursor>
 #include <QWindow>
+#include <QMenu>
+#include <QContextMenuEvent>
+#include <QRegularExpression>
+#include <QMessageBox>
 
 static const QMap<QString, QColor> &colorMap()
 {
@@ -109,6 +113,62 @@ void StickieCard::setupUI()
                 .arg(extraStyle));
         return b;
     };
+
+    // ── Botão Excluir (lixeira) ────────────────────────────────────────────
+    m_btnDelete = new QPushButton();
+    m_btnDelete->setFixedSize(22, 20);
+    m_btnDelete->setToolTip(QStringLiteral("Excluir nota"));
+    m_btnDelete->setCursor(Qt::ArrowCursor);
+    m_btnDelete->setFocusPolicy(Qt::NoFocus);
+    m_btnDelete->setStyleSheet(QStringLiteral(
+        "QPushButton { background:transparent; border:1px solid transparent; border-radius:3px; }"
+        "QPushButton:hover { background:rgba(200,0,0,0.18); border:1px solid rgba(200,0,0,0.35); }"
+        "QPushButton:pressed { background:rgba(200,0,0,0.30); }"));
+    {
+        QPixmap pm(20, 20);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        QPen pen(QColor(90, 90, 90), 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        p.setPen(pen);
+
+        // Tampa
+        p.drawLine(5, 7, 15, 7);
+        p.drawLine(8, 7, 8, 5);
+        p.drawLine(12, 7, 12, 5);
+        p.drawLine(8, 5, 12, 5);
+
+        // Corpo
+        p.drawRoundedRect(6, 8, 9, 8, 1, 1);
+
+        // Linhas internas
+        p.drawLine(9,  10, 9,  14);
+        p.drawLine(11, 10, 11, 14);
+        p.end();
+        m_btnDelete->setIcon(QIcon(pm));
+        m_btnDelete->setIconSize(QSize(20, 20));
+    }
+    connect(m_btnDelete, &QPushButton::clicked, this, [this]() {
+        QMessageBox box(this);
+        box.setWindowTitle(QStringLiteral("Excluir nota"));
+        box.setText(QStringLiteral("Excluir esta nota permanentemente?"));
+        box.setIcon(QMessageBox::Question);
+        box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        box.setDefaultButton(QMessageBox::No);
+        box.button(QMessageBox::Yes)->setText(QStringLiteral("Excluir"));
+        box.button(QMessageBox::No)->setText(QStringLiteral("Cancelar"));
+        if (box.exec() == QMessageBox::Yes)
+            emit deleteRequested();
+    });
+    tb->addWidget(m_btnDelete);
+
+    // ── Separador entre lixeira e formatação ──────────────────────────────
+    {
+        auto *sep = new QWidget();
+        sep->setFixedSize(1, 18);
+        sep->setStyleSheet(QStringLiteral("background:rgba(0,0,0,0.12);"));
+        tb->addWidget(sep);
+    }
 
     m_btnBold      = makeBtn(QStringLiteral("B"), QStringLiteral("Negrito"),       QStringLiteral("font-weight:bold;"));
     m_btnItalic    = makeBtn(QStringLiteral("I"), QStringLiteral("Itálico"),       QStringLiteral("font-style:italic;"));
@@ -357,6 +417,10 @@ void StickieCard::setupUI()
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0px; }"));
     cl->addWidget(m_textEdit);
     m_textEdit->installEventFilter(this);
+    m_textEdit->viewport()->installEventFilter(this);
+
+    // Correção ortográfica
+    m_spellHighlighter = new SpellHighlighter(m_textEdit->document());
 
     outer->addWidget(m_container);
 
@@ -536,7 +600,10 @@ bool StickieCard::eventFilter(QObject *obj, QEvent *event)
                 return true;
             }
         }
-    } else if (obj == m_textEdit) {
+    }
+
+    // Eventos no viewport do textEdit (onde realmente chegam mouse e contexto)
+    if (m_textEdit && (obj == m_textEdit || obj == m_textEdit->viewport())) {
         switch (event->type()) {
         case QEvent::MouseButtonPress: {
             auto *me = static_cast<QMouseEvent *>(event);
@@ -567,6 +634,46 @@ bool StickieCard::eventFilter(QObject *obj, QEvent *event)
             m_potentialDrag = false;
             if (m_dragging) { m_dragging = false; return true; }
             break;
+        }
+        case QEvent::ContextMenu: {
+            if (!m_spellHighlighter || !m_spellHighlighter->isLoaded())
+                break;
+            auto *ce = static_cast<QContextMenuEvent *>(event);
+            // ce->pos() já é relativo ao widget que recebeu o evento (viewport)
+            QPoint vpPos = (obj == m_textEdit->viewport())
+                               ? ce->pos()
+                               : m_textEdit->viewport()->mapFromGlobal(ce->globalPos());
+            QTextCursor cur = m_textEdit->cursorForPosition(vpPos);
+            cur.select(QTextCursor::WordUnderCursor);
+            QString word = cur.selectedText();
+            word.remove(QRegularExpression(QStringLiteral("[^\\p{L}]")));
+            if (word.length() < 3 || m_spellHighlighter->isCorrect(word))
+                break;
+
+            QMenu menu(m_textEdit);
+            auto *hdr = menu.addAction(QStringLiteral("\"%1\" — sugestões:").arg(word));
+            hdr->setEnabled(false);
+            const QStringList sugg = m_spellHighlighter->suggestions(word);
+            if (sugg.isEmpty()) {
+                menu.addAction(QStringLiteral("Sem sugestões"))->setEnabled(false);
+            } else {
+                for (const QString &s : sugg) {
+                    QTextCursor c = cur;
+                    menu.addAction(s, [c, s]() mutable { c.insertText(s); });
+                }
+            }
+            menu.addSeparator();
+            const bool hasSel = m_textEdit->textCursor().hasSelection();
+            menu.addAction(QStringLiteral("Desfazer"),       m_textEdit, &QTextEdit::undo)->setEnabled(m_textEdit->document()->isUndoAvailable());
+            menu.addAction(QStringLiteral("Refazer"),        m_textEdit, &QTextEdit::redo)->setEnabled(m_textEdit->document()->isRedoAvailable());
+            menu.addSeparator();
+            menu.addAction(QStringLiteral("Recortar"),       m_textEdit, &QTextEdit::cut)->setEnabled(hasSel);
+            menu.addAction(QStringLiteral("Copiar"),         m_textEdit, &QTextEdit::copy)->setEnabled(hasSel);
+            menu.addAction(QStringLiteral("Colar"),          m_textEdit, &QTextEdit::paste)->setEnabled(m_textEdit->canPaste());
+            menu.addSeparator();
+            menu.addAction(QStringLiteral("Selecionar Tudo"), m_textEdit, &QTextEdit::selectAll);
+            menu.exec(ce->globalPos());
+            return true;
         }
         default:
             break;

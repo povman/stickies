@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/dictionaries">
+        <file alias="pt_BR.aff">dictionaries/pt_BR.aff</file>
+        <file alias="pt_BR.dic">dictionaries/pt_BR.dic</file>
+    </qresource>
+</RCC>
